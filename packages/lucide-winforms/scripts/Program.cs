@@ -2,28 +2,19 @@ using System.Drawing;
 using System.Resources;
 using System.Text.Json;
 
-// Get the project directory (where the .csproj is located)
-var projectDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? Environment.CurrentDirectory;
-
-// When running via 'dotnet run', we need to find the actual project directory
-// The .csproj is in the scripts folder, so we look for it
-var csprojPath = Path.Combine(Environment.CurrentDirectory, "scripts", "GenerateResources.csproj");
-if (File.Exists(csprojPath))
+var lucideProjectFolderPath = args.Length > 0 ? args[0] : null;
+if (string.IsNullOrEmpty(lucideProjectFolderPath) || !Directory.Exists(lucideProjectFolderPath))
 {
-    // Running from package root (via pnpm build)
-    projectDir = Path.Combine(Environment.CurrentDirectory, "scripts");
-}
-else if (File.Exists(Path.Combine(Environment.CurrentDirectory, "GenerateResources.csproj")))
-{
-    // Running directly from scripts folder
-    projectDir = Environment.CurrentDirectory;
+    Console.ForegroundColor = ConsoleColor.Red;
+    Console.WriteLine("❌ Error: Please provide a valid path to the lucide project folder as the first argument.");
+    Console.ResetColor();
+    Environment.Exit(1);
 }
 
-var packageDir = Path.GetFullPath(Path.Combine(projectDir, ".."));
-var sourceIconFolder = Path.GetFullPath(Path.Combine(packageDir, "..", "lucide-ico", "dist"));
-var iconsMetadataFolder = Path.GetFullPath(Path.Combine(packageDir, "..", "..", "icons"));
-var categoriesFolder = Path.GetFullPath(Path.Combine(packageDir, "..", "..", "categories"));
-var targetFolder = Path.GetFullPath(Path.Combine(packageDir, "dist"));
+var sourceIconFolder = Path.GetFullPath(Path.Combine(lucideProjectFolderPath, "packages", "lucide-ico", "dist"));
+var iconsMetadataFolder = Path.GetFullPath(Path.Combine(lucideProjectFolderPath, "icons"));
+var categoriesFolder = Path.GetFullPath(Path.Combine(lucideProjectFolderPath, "categories"));
+var targetFolder = args.Length > 1 ? args[1] : Path.Combine(lucideProjectFolderPath, "packages", "lucide-winforms", "dist");
 
 Console.WriteLine("🎨 Building WinForms .resx Resource files...");
 Console.WriteLine($"📁 ICO Source: {sourceIconFolder}");
@@ -32,11 +23,12 @@ Console.WriteLine($"📁 Categories: {categoriesFolder}");
 Console.WriteLine($"📁 Output: {targetFolder}");
 Console.WriteLine();
 
+var sourceIconFolderInfo = new DirectoryInfo(sourceIconFolder);
 // Ensure source folder exists
-if (!Directory.Exists(sourceIconFolder))
+if (!sourceIconFolderInfo.Exists || !sourceIconFolderInfo.GetFiles("*.ico").Any())
 {
     Console.ForegroundColor = ConsoleColor.Red;
-    Console.WriteLine($"❌ Error: ICO source folder not found: {sourceIconFolder}");
+    Console.WriteLine($"❌ Error: ICO source folder not found (or doesn't contain any .ico files): {sourceIconFolder}");
     Console.WriteLine("   Please run 'pnpm build' in the lucide-ico package first.");
     Console.ResetColor();
     Environment.Exit(1);
@@ -46,8 +38,8 @@ if (!Directory.Exists(sourceIconFolder))
 Directory.CreateDirectory(targetFolder);
 
 // Get all available ICO files
-var icoFiles = Directory.GetFiles(sourceIconFolder, "*.ico")
-    .ToDictionary(f => Path.GetFileNameWithoutExtension(f), f => f, StringComparer.OrdinalIgnoreCase);
+var icoFiles = sourceIconFolderInfo.GetFiles("*.ico")
+    .ToDictionary(f => Path.GetFileNameWithoutExtension(f.Name), f => f, StringComparer.OrdinalIgnoreCase);
 
 Console.WriteLine($"Found {icoFiles.Count} ICO files available.");
 Console.WriteLine();
@@ -126,7 +118,7 @@ foreach (var icons in categoryIcons.Values)
 
 // Generate .resx file for each category
 Console.WriteLine("Generating category .resx files...");
-
+var imageBitmapType = "System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a";
 foreach (var (category, icons) in categoryIcons.OrderBy(kv => kv.Key))
 {
     var categoryFileName = ToPascalCase(category);
@@ -142,10 +134,17 @@ foreach (var (category, icons) in categoryIcons.OrderBy(kv => kv.Key))
             {
                 try
                 {
-                    var resourceKey = ToResourceKey(iconName);
-                    using var image = Image.FromFile(icoPath);
-                    writer.AddResource(resourceKey, image);
-                    addedCount++;
+          //var resourceKey = ToResourceKey(iconName);
+          //using var image = Image.FromFile(icoPath.FullName);
+          //writer.AddResource(resourceKey, image);
+
+          var resourceKey = iconName; //ToResourceKey(iconName);
+                                      //using var image = Image.FromFile(icoPath.FullName);
+          //System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+          var imageFileRef = new System.Resources.ResXFileRef(icoPath.FullName, imageBitmapType);
+          writer.AddResource(resourceKey, imageFileRef);
+
+          addedCount++;
                 }
                 catch (Exception ex)
                 {
@@ -174,9 +173,10 @@ using (var writer = new ResXResourceWriter(allIconsResxPath))
     {
         try
         {
-            var resourceKey = ToResourceKey(iconName);
-            using var image = Image.FromFile(icoPath);
-            writer.AddResource(resourceKey, image);
+            var resourceKey = iconName; //ToResourceKey(iconName);
+            //using var image = Image.FromFile(icoPath.FullName);
+            var imageFileRef = new System.Resources.ResXFileRef(icoPath.FullName, imageBitmapType);
+            writer.AddResource(resourceKey, imageFileRef);
             totalCount++;
             
             // Show progress every 100 icons
