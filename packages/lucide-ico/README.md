@@ -25,6 +25,47 @@ pnpm install
 pnpm build
 ```
 
+### Building with a custom color
+
+By default, icons use `currentColor` (default is black: `#000000`). You can specify a custom color using a hex color code:
+
+```sh
+# White icons
+pnpm build "#ffffff"
+
+# Red icons
+pnpm build "#ff0000"
+
+# Short hex format also works
+pnpm build "#fff"
+```
+
+### Building with custom sizes
+
+By default, icons are generated in sizes: 16, 24, 32, 48, 64, 128, 256px. You can specify custom sizes:
+
+```sh
+# Only small sizes
+pnpm build "#000000" "16, 24, 32"
+
+# All default sizes explicitly
+pnpm build "#ffffff" "16, 24, 32, 48, 64, 128, 256"
+
+# Without spaces also works
+pnpm build "#fff" "16,24,32,48"
+```
+
+Note: the `pnpm build` command will delete all files and subfolders inside the `lucide-ico\dist` folder.
+To prevent this, execute ``pnpm build:icons` instead (this will not perform `pnpm clean`).
+
+```sh
+cd <path_to>\lucide\packages\lucide-ico;
+
+pnpm build:icons "#000000"
+
+pnpm build:icons "#000000" "16, 32"
+```
+
 ### File structure
 
 ```

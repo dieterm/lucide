@@ -5,11 +5,61 @@ import sharp from 'sharp';
 import pngToIco from 'png-to-ico';
 import { readSvgDirectory } from '@lucide/helpers';
 
-// ICO sizes to generate
-const ICO_SIZES = [16, 24, 32, 48, 64, 128, 256];
+// Default ICO sizes to generate
+const DEFAULT_ICO_SIZES = [16, 24, 32, 48, 64, 128, 256];
+
+// Parse command line arguments for optional color
+function parseColorArg(): string | null {
+  const args = process.argv.slice(2);
+  for (const arg of args) {
+    // Match hex color patterns: #fff, #ffffff (must start with #)
+    const colorMatch = arg.match(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/);
+    if (colorMatch) {
+      const hex = colorMatch[1];
+      // Normalize 3-digit hex to 6-digit
+      if (hex.length === 3) {
+        return `#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`;
+      }
+      return `#${hex}`;
+    }
+  }
+  return null;
+}
+
+// Parse command line arguments for optional sizes (e.g., "16, 24, 32" or "16,24,32")
+function parseSizesArg(): number[] | null {
+  const args = process.argv.slice(2);
+  for (const arg of args) {
+    // Match comma-separated numbers pattern (with optional spaces)
+    const sizesMatch = arg.match(/^(\d+\s*,\s*)+(\d+)$/);
+    if (sizesMatch || /^\d+$/.test(arg)) {
+      // Parse the sizes
+      const sizes = arg
+        .split(',')
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => !isNaN(n) && n > 0 && n <= 256);
+      if (sizes.length > 0) {
+        return sizes.sort((a, b) => a - b);
+      }
+    }
+  }
+  return null;
+}
+
+// Replace stroke color in SVG content
+function replaceStrokeColor(svgContent: string, newColor: string): string {
+  // Lucide icons use stroke="currentColor" - replace it with the specified color
+  return svgContent
+    .replace(/stroke="currentColor"/g, `stroke="${newColor}"`)
+    .replace(/fill="currentColor"/g, `fill="${newColor}"`);
+}
+
+const CUSTOM_COLOR = parseColorArg();
+const CUSTOM_SIZES = parseSizesArg();
+const ICO_SIZES = CUSTOM_SIZES || DEFAULT_ICO_SIZES;
 
 const ICONS_DIR = path.resolve(process.cwd(), '../../icons');
-const OUTPUT_DIR = path.resolve(process.cwd(), 'dist');
+const OUTPUT_DIR = path.resolve(process.cwd(), 'dist', CUSTOM_COLOR ?? '#000000');
 
 interface IconMetadata {
   name: string;
@@ -29,8 +79,13 @@ async function getIconMetaData(iconDirectory: string): Promise<Record<string, Ic
   return Object.fromEntries(entries);
 }
 
-async function svgToIco(svgPath: string, outputPath: string): Promise<void> {
-  const svgContent = await fs.promises.readFile(svgPath, 'utf-8');
+async function svgToIco(svgPath: string, outputPath: string, color: string | null): Promise<void> {
+  let svgContent = await fs.promises.readFile(svgPath, 'utf-8');
+
+  // Apply custom color if specified
+  if (color) {
+    svgContent = replaceStrokeColor(svgContent, color);
+  }
 
   // Generate PNG buffers for each size
   const pngBuffers: Buffer[] = await Promise.all(
@@ -60,7 +115,16 @@ async function buildIcons(): Promise<void> {
   console.log('🎨 Building ICO icons...');
   console.log(`📁 Source: ${ICONS_DIR}`);
   console.log(`📁 Output: ${OUTPUT_DIR}`);
-  console.log(`📐 Sizes: ${ICO_SIZES.join(', ')}px`);
+  if (CUSTOM_SIZES) {
+    console.log(`📐 Custom sizes: ${ICO_SIZES.join(', ')}px`);
+  } else {
+    console.log(`📐 Sizes: ${ICO_SIZES.join(', ')}px (default)`);
+  }
+  if (CUSTOM_COLOR) {
+    console.log(`🎨 Custom color: ${CUSTOM_COLOR}`);
+  } else {
+    console.log(`🎨 Color: currentColor (default)`);
+  }
   console.log('');
 
   // Create output directory
@@ -83,7 +147,7 @@ async function buildIcons(): Promise<void> {
     const icoPath = path.join(OUTPUT_DIR, `${iconName}.ico`);
 
     try {
-      await svgToIco(svgPath, icoPath);
+      await svgToIco(svgPath, icoPath, CUSTOM_COLOR);
       successCount++;
 
       // Show progress every 100 icons
@@ -111,6 +175,7 @@ async function buildIcons(): Promise<void> {
     sizes: ICO_SIZES,
     colorDepth: '32-bit with transparency',
     format: 'PNG compressed ICO',
+    color: CUSTOM_COLOR || 'currentColor',
     icons: Object.keys(iconMetaData).sort(),
   };
 

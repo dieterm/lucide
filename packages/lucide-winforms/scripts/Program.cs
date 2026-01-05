@@ -10,12 +10,15 @@ if (string.IsNullOrEmpty(lucideProjectFolderPath) || !Directory.Exists(lucidePro
     Console.ResetColor();
     Environment.Exit(1);
 }
+var colorSubFolder = (args.Length > 1 ? args[1] : null) ?? "#000000";
 
-var sourceIconFolder = Path.GetFullPath(Path.Combine(lucideProjectFolderPath, "packages", "lucide-ico", "dist"));
+var sourceIconFolder = Path.GetFullPath(Path.Combine(lucideProjectFolderPath, "packages", "lucide-ico", "dist", colorSubFolder));
 var iconsMetadataFolder = Path.GetFullPath(Path.Combine(lucideProjectFolderPath, "icons"));
 var categoriesFolder = Path.GetFullPath(Path.Combine(lucideProjectFolderPath, "categories"));
-var targetFolder = args.Length > 1 ? args[1] : Path.Combine(lucideProjectFolderPath, "packages", "lucide-winforms", "dist");
-
+var targetFolder = args.Length > 2 ? args[2] : Path.Combine(lucideProjectFolderPath, "packages", "lucide-winforms", "dist", colorSubFolder);
+var relativeTargetFolder = args.Length > 3 ? args[3] : null;
+if(relativeTargetFolder==null)
+  relativeTargetFolder = $".\\lucide-icons\\{colorSubFolder}\\";
 Console.WriteLine("🎨 Building WinForms .resx Resource files...");
 Console.WriteLine($"📁 ICO Source: {sourceIconFolder}");
 Console.WriteLine($"📁 Icons Metadata: {iconsMetadataFolder}");
@@ -122,7 +125,7 @@ var imageBitmapType = "System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, C
 foreach (var (category, icons) in categoryIcons.OrderBy(kv => kv.Key))
 {
     var categoryFileName = ToPascalCase(category);
-    var resxPath = Path.Combine(targetFolder, $"LucideIcons.{categoryFileName}.resx");
+    var resxPath = Path.Combine(targetFolder, $"LucideIcons_{colorSubFolder}.{categoryFileName}.resx");
     
     var addedCount = 0;
     
@@ -140,8 +143,7 @@ foreach (var (category, icons) in categoryIcons.OrderBy(kv => kv.Key))
 
           var resourceKey = iconName; //ToResourceKey(iconName);
                                       //using var image = Image.FromFile(icoPath.FullName);
-          //System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
-          var imageFileRef = new System.Resources.ResXFileRef(icoPath.FullName, imageBitmapType);
+          var imageFileRef = new System.Resources.ResXFileRef($"{relativeTargetFolder}{icoPath.Name}", imageBitmapType);
           writer.AddResource(resourceKey, imageFileRef);
 
           addedCount++;
@@ -164,7 +166,7 @@ Console.WriteLine();
 // Generate main LucideIcons.resx with all icons
 Console.WriteLine("Generating LucideIcons.resx with all icons...");
 
-var allIconsResxPath = Path.Combine(targetFolder, "LucideIcons.resx");
+var allIconsResxPath = Path.Combine(targetFolder, $"LucideIcons_{colorSubFolder}.resx");
 var totalCount = 0;
 
 using (var writer = new ResXResourceWriter(allIconsResxPath))
@@ -175,7 +177,7 @@ using (var writer = new ResXResourceWriter(allIconsResxPath))
         {
             var resourceKey = iconName; //ToResourceKey(iconName);
             //using var image = Image.FromFile(icoPath.FullName);
-            var imageFileRef = new System.Resources.ResXFileRef(icoPath.FullName, imageBitmapType);
+            var imageFileRef = new System.Resources.ResXFileRef($"{relativeTargetFolder}{icoPath.Name}", imageBitmapType);
             writer.AddResource(resourceKey, imageFileRef);
             totalCount++;
             

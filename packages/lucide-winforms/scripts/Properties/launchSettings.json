@@ -2,7 +2,7 @@
   "profiles": {
     "GenerateResources": {
       "commandName": "Project",
-      "commandLineArgs": "D:\\Cloud\\GitHub\\lucide",
+      "commandLineArgs": "\"D:\\Cloud\\GitHub\\lucide\" \"#ffffff\"",
       "workingDirectory": "D:\\Cloud\\GitHub\\lucide"
     }
   }
